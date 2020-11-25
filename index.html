@@ -4,15 +4,34 @@
 <head>
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
     <meta content="utf-8" http-equiv="encoding">
+
 </head>
 
 <body>
+
+    <h4 id="links">
+        Wood texture: <a href='https://www.freepik.com/photos/pattern'>Pattern photo created by lyashenko -
+            www.freepik.com</a><br>
+        Green table texture: <a href='https://www.freepik.com/photos/background'>Background photo created by dashu83 -
+            www.freepik.com</a><br>
+        Balls texture: <a href='https://www.freepik.com/vectors/background'>Background vector created by rawpixel.com -
+            www.freepik.com</a>
+    </h4>
 
     <script src="js/three.js"></script>
     <script src="js/cannon.js"></script>
     <script type="module">
         import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
 
+
+        var get_coords = function (force) {
+            var xx = elements_page[white_ball - 1][1].quaternion.x / Math.sqrt(1 - Math.pow(elements_page[white_ball - 1][1].quaternion.w, 2));
+            var zz = elements_page[white_ball - 1][1].quaternion.z / Math.sqrt(1 - Math.pow(elements_page[white_ball - 1][1].quaternion.w, 2));
+            return new CANNON.Vec3(xx * force, 0, zz * force);
+        }
+
+        // Instruções
+        var text_instruction = "To Play, use the 'J' and 'L' to aim the ball.\nThe cone is positioned to the direction the ball will go.\nUse 'I' to change between the forces to apply to the ball. \nAs the cone turns Red, the force applyied to the Ball will be greater.\nPress 'K' to throw the ball.\n Press 'R' to reset the game\nPoints: " + 0;
         const FPS = 60;
         const table_x = 31;
         const table_z = 17;
@@ -20,6 +39,7 @@
         const raio_t = 0.674
         var world;
 
+        var last_pont = -1;
         var pontuacao = 0;
 
         var elements_page = [];
@@ -28,88 +48,70 @@
         world = new CANNON.World();
         world.gravity.set(0.0, -9.8, 0.0);
         world.broadphase = new CANNON.NaiveBroadphase();
-        world.solver.iterations = 40000;
+        world.solver.iterations = 4000;
 
         // Create THREEJS 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.setClearColor(0x000000, 0);
-        const loader = new THREE.TextureLoader();
-        loader.load('https://i.pinimg.com/originals/39/ec/d1/39ecd18dfe039f474138051777c6f0b9.gif', function (texture) {
-            scene.background = texture;
-        });
-        document.body.appendChild(renderer.domElement);
+        renderer.shadowMap.type = THREE.VSMShadowMap;
+        renderer.setClearColor(0x111111, 1);
+        document.body.insertBefore(renderer.domElement, document.getElementById('links'));
         const controls = new OrbitControls(camera, renderer.domElement);
 
-        // Haja Luz - THREEJS
-        //const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
-        //scene.add(light);
-
-
         const spotLight = new THREE.SpotLight(0xffffff);
-        spotLight.position.set(100, 50, 20);
+        spotLight.position.set(100, 30, 20);
 
         spotLight.castShadow = true;
 
-        spotLight.shadow.mapSize.width = 1024;
-        spotLight.shadow.mapSize.height = 1024;
+        spotLight.shadow.mapSize.width = 512;
+        spotLight.shadow.mapSize.height = 512;
 
-        spotLight.shadow.camera.near = 500;
-        spotLight.shadow.camera.far = 4000;
+        spotLight.shadow.camera.near = 20;
+        spotLight.shadow.camera.far = 1000;
         spotLight.shadow.camera.fov = 30;
 
-        
+
         scene.add(spotLight);
 
         const spotLight2 = new THREE.SpotLight(0xccffff);
-        spotLight2.position.set(-100, 50, 20);
+        spotLight2.position.set(-100, 30, 20);
         spotLight2.castShadow = true;
-        spotLight2.shadow.mapSize.width = 1024;
-        spotLight2.shadow.mapSize.height = 1024;
-        spotLight2.shadow.camera.near = 500;
-        spotLight2.shadow.camera.far = 4000;
+        spotLight2.shadow.mapSize.width = 512;
+        spotLight2.shadow.mapSize.height = 512;
+        spotLight2.shadow.camera.near = 20;
+        spotLight2.shadow.camera.far = 1000;
         spotLight2.shadow.camera.fov = 30;
 
-        
+
         scene.add(spotLight2);
 
-        // Mesa - THREEJS
+        // Texture Loader
+        const loader = new THREE.TextureLoader();
 
+        // Mesa - THREEJS
+        //
         //      Material CANNON MESA
-        var wall_mat = new CANNON.Material({ friction: 0.1, restitution: 0.7 });
+        var wall_mat = new CANNON.Material({ friction: 0.1, restitution: 0.97 });
 
 
         //      Tampo mesa
+        const texture_table = loader.load('Texture/dark-green-texture.jpg')
         var x1 = table_x - (raio_ball * 8);
         var z1 = table_z - (raio_ball * 8);
         var geometry = new THREE.BoxBufferGeometry(x1, 1, table_z);
-        const material = new THREE.MeshStandardMaterial({ color: 0x00cc00 });
+        const material = new THREE.MeshStandardMaterial({ map: texture_table });
         var mesa = new THREE.Mesh(geometry, material);
-
-
         var groundShape = new CANNON.Box(new CANNON.Vec3(x1 / 2, 1 / 2, table_z / 2));
-        groundShape.material = new CANNON.Material({ friction: 0.1, restitution: 0.1 });
-
+        groundShape.material = new CANNON.Material({ friction: 0.1, restitution: 0.91 });
         var groundBody = new CANNON.Body({ mass: 0, shape: groundShape });
         groundBody.position.set(0, 0, 0);
-
-
         elements_page.push([mesa, groundBody, "floor"]);
-
         geometry = new THREE.BoxBufferGeometry(table_x, 1, z1);
-
         elements_page.push([new THREE.Mesh(geometry, material), new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(table_x / 2, 1 / 2, z1 / 2)) }), "floor"]);
-
-
-
-
-
-
-
 
         // SHAPES LATERAIS
         var z2 = (table_z / 2 + (raio_ball * 8));
@@ -123,8 +125,9 @@
 
         //      Lado 1 - 4
         //          THREEJS
+        const texture_wood = loader.load('Texture/wooden-texture.jpg');
         var g2 = new THREE.BoxBufferGeometry(x2, 3, 1);
-        var m2 = new THREE.MeshStandardMaterial({ color: 0x663300 });
+        var m2 = new THREE.MeshStandardMaterial({ map: texture_wood });
 
         //          CANNON
         for (var i = 0; i < 4; i++) {
@@ -133,14 +136,18 @@
 
         // Lado 5-6
         g2 = new THREE.BoxBufferGeometry(1, 3, z2);
+
         for (var i = 0; i < 2; i++) {
             elements_page.push([new THREE.Mesh(g2, m2), new CANNON.Body({ mass: 0, shape: groundShape4 }), "wall"]);
         }
 
+        // Bastão
+        elements_page.push([new THREE.Mesh(new THREE.CylinderBufferGeometry(.05, .1, 0.5, 32), new THREE.MeshBasicMaterial({ color: 0xffff00 })), new CANNON.Body({ mass: 0, shape: new CANNON.Cylinder(.05 / 2, .1 / 2, .015 / 2, 32) }), "Bastao"]);
+
 
         // Bola Branca
-        const gb = new THREE.SphereBufferGeometry(raio_ball, 320, 320);
-        const mm = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const gb = new THREE.SphereBufferGeometry(raio_ball, 32, 32);
+        const mm = new THREE.MeshStandardMaterial({ map: loader.load('Texture/cool-blue-parchment/86280.jpg') });
         var gsg = new THREE.Mesh(gb, mm);
 
         var mass = 50, radius = raio_ball;
@@ -150,31 +157,63 @@
         sphereBody.angularDamping = 0.87;
         elements_page.push([gsg, sphereBody, "White"]);
 
+        var white_ball = elements_page.length - 1;
+
         // Bolas Vermelhas
-        const rb = new THREE.SphereBufferGeometry(raio_ball, 320, 320);
-        const mb = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-        mass = 2;
+        const rb = new THREE.SphereBufferGeometry(raio_ball, 32, 32);
+        const mb = new THREE.MeshStandardMaterial({ map: loader.load('Texture/cool-blue-parchment/86280.jpg'), color: 0xff0000 });
+        mass = 28;
         for (var i = 0; i < 10; i++) {
             elements_page.push([new THREE.Mesh(rb, mb), new CANNON.Body({ mass: mass, shape: sphereShape, position: new CANNON.Vec3(0, 20 + 10 * i, 0) }), "Red"]);
         }
 
+        // Texto
+        var thetext;
+        const text_group = new THREE.Group();
+        var fontLoader = new THREE.FontLoader();
+        fontLoader.load("fonts/helvetiker_regular.typeface.json", function (tex) {
+            var textGeo = new THREE.TextBufferGeometry(text_instruction, {
+                size: 2,
+                height: .5,
+                curveSegments: 6,
+                font: tex,
+            });
+            var color = new THREE.Color();
+            color.setRGB(255, 250, 250);
+            var textMaterial = new THREE.MeshPhongMaterial({ color: color });
+            thetext = new THREE.Mesh(textGeo, textMaterial);
+            text_group.add(thetext)
+        })
+        elements_page.push([text_group, null, "TEXT"]);
+        var text_index = elements_page.length - 1;
+
+
         // Pos inicial CAMERA
-        camera.position.z = -5;
-        camera.position.y = 20;
+        camera.position.set(10, 25, -20);
 
         // Adiciona tudo ao mundo
         var init_world = function () {
             if (scene.children.length > 0) {
                 for (var i in elements_page) {
                     if (scene.children.includes(elements_page[i][0])) {
-                        world.remove(elements_page[i][1]);
-                        scene.remove(elements_page[i][0]);
+                        if (elements_page[i][2] != "TEXT") {
+                            world.remove(elements_page[i][1]);
+                            scene.remove(elements_page[i][0]);
+                        } else {
+                            scene.remove(elements_page[i][0]);
+                        }
                     }
                 }
             }
             for (var i in elements_page) {
-                world.add(elements_page[i][1]);
-                scene.add(elements_page[i][0]);
+                if (elements_page[i][2] == "TEXT") {
+                    scene.add(elements_page[i][0]);
+
+                }
+                else {
+                    world.add(elements_page[i][1]);
+                    scene.add(elements_page[i][0]);
+                }
             }
             setupKeyControls();
             setTimeout(function () {
@@ -184,6 +223,7 @@
 
         // Update de posição dos objetos
         function update_physics() {
+            var reds = 0;
             world.step((1 / FPS));
             for (var i in elements_page) {
                 if (elements_page[i][2] == "White" && elements_page[i][1].position.y < -2 && all_stop()) {
@@ -196,18 +236,74 @@
                     elements_page[i][0].quaternion.copy(elements_page[i][1].quaternion);
                     pontuacao -= 5;
                 }
-                else if (elements_page[i][2] == "Red" && elements_page[i][1].position.y < -2) {
-                    scene.remove(elements_page[i][0]);
-                    world.remove(elements_page[i][1]);
-                    pontuacao += 10;
+                else if (elements_page[i][2] == "Red") {
+                    reds++;
+                    elements_page[i][0].position.copy(elements_page[i][1].position);
+                    elements_page[i][0].quaternion.copy(elements_page[i][1].quaternion);
+                    if (elements_page[i][1].position.y < -2) {
+                        scene.remove(elements_page[i][0]);
+                        world.remove(elements_page[i][1]);
+                        pontuacao += 10;
+                    }
+                }
+                else if (elements_page[i][2] == "Bastao") {
+                    if (all_stop()) {
+                        elements_page[i][0].traverse(function (child) {
+                            if (child instanceof THREE.Mesh) {
+                                child.visible = true;
+                            }
+                        });
+                    }
+                    else {
+                        elements_page[i][0].traverse(function (child) {
+                            if (child instanceof THREE.Mesh) {
+                                child.visible = false;
+                            }
+                        });
+                    }
+                    var d = (get_coords(1).vadd(elements_page[white_ball][0].position)).vadd(new CANNON.Vec3(0, .5, 0));
+                    elements_page[i][0].position.copy(d);
+                }
+                else if (elements_page[i][2] == "TEXT") {
+                    if (last_pont != pontuacao) {
+                        //elements_page[i][0].remove(thetext);
 
+                        scene.remove(elements_page[i][0]);
+
+                        elements_page[i][0] = new THREE.Group();
+
+                        last_pont = pontuacao;
+
+                        fontLoader.load("fonts/helvetiker_regular.typeface.json", function (tex) {
+                            var textGeo = new THREE.TextBufferGeometry(text_instruction, {
+                                size: 1,
+                                height: .5,
+                                curveSegments: 6,
+                                font: tex,
+                            });
+                            var color = new THREE.Color();
+                            color.setRGB(255, 250, 250);
+                            var textMaterial = new THREE.MeshPhongMaterial({ color: color });
+                            thetext = new THREE.Mesh(textGeo, textMaterial);
+                            elements_page[i][0].add(thetext)
+                        })
+                        scene.add(elements_page[i][0]);
+                    }
+                    elements_page[i][0].quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), 3);
+                    elements_page[i][0].position.set(14, 15, 28);
                 }
                 else {
                     elements_page[i][0].position.copy(elements_page[i][1].position);
                     elements_page[i][0].quaternion.copy(elements_page[i][1].quaternion);
                 }
             }
+            if (reds == 0) {
+
+                text_instruction = "GAME OVER!!! \nYOUR SCORE: " + pontuacao + "\nPRESS 'R' to reset";
+                last_pont = 1e4;
+            }
         }
+
 
         // Função de Update geral
         function animate() {
@@ -215,44 +311,58 @@
                 world.solver.iterations = 8;
             }
             else {
-                world.solver.iterations = 800;
+                world.solver.iterations = 200;
             }
             setTimeout(function () {
                 requestAnimationFrame(animate);
             }, 1000 / FPS);
             controls.update();
             update_physics();
-            console.log(scene.children.length);
             renderer.render(scene, camera);
         }
 
 
-        reset_world();
-
         function setupKeyControls() {
             document.onkeydown = function (e) {
+                if (all_stop()) {
+                    switch (e.keyCode) {
+                        case 82:
+                            reset_world();
+                            break;
+                        case 76:
+                            Cur_ngl += .05;
+                            elements_page[white_ball - 1][1].quaternion.setFromEuler(Math.PI / 2, 0, Cur_ngl, 0);
+                            break;
+                        case 73:
+                            force += 10000;
+                            if (force > max_force) {
+                                force = min_force;
+                            }
+                            elements_page[white_ball - 1][0].material.color.set('rgb(' + Math.round(255 * ((force - min_force) / max_force)) + ' ,' + 0 + ' ,' + Math.round(255 * (1 - ((force - min_force) / max_force))) + ")");
+                            break;
+                        case 74:
+                            Cur_ngl -= .05;
+                            elements_page[white_ball - 1][1].quaternion.setFromEuler(Math.PI / 2, 0, Cur_ngl, 0);
+                            break;
+                        case 75:
+                            elements_page[white_ball][1].applyForce(get_coords(force), elements_page[white_ball][1].position);
+                            break;
+                    }
+                }
                 switch (e.keyCode) {
                     case 82:
                         reset_world();
                         break;
-                    case 74:
-                        for (var ss in elements_page) {
-                            if (elements_page[ss][2] == "White") {
-                                elements_page[ss][1].applyForce(new CANNON.Vec3(-20000, 0, -2000), elements_page[ss][1].position);
-                                break;
-                            }
-                        }
-                        break;
-
                 }
             };
         }
 
         var all_stop = function () {
+            var treshold = 0.004;
             for (var i in elements_page) {
-                if (elements_page[i][2] != "wall") {
+                if (elements_page[i][2] != "wall" && elements_page[i][2] != "Bastao" && elements_page[i][2] != "TEXT") {
                     if (elements_page[i][1].position.y > -2) {
-                        if (Math.abs(elements_page[i][1].velocity.x) >= 0.001 & Math.abs(elements_page[i][1].velocity.z) >= 0.001) {
+                        if (Math.abs(elements_page[i][1].velocity.x) >= treshold & Math.abs(elements_page[i][1].velocity.z) >= treshold) {
                             return false;
                         }
                     }
@@ -276,12 +386,18 @@
                     elements_page[i][0].castShadow = true;
                     elements_page[i][0].recieveShadow = true;
                 }
+                else if (elements_page[i][2] == "TEXT") {
+                    pontuacao = 0;
+                    last_pont = -1;
+                    text_instruction = "To Play, use the 'J' and 'L' to aim the ball.\nThe cone is positioned to the direction the ball will go.\nUse 'I' to change between the forces to apply to the ball. \nAs the cone turns Red, the force applyied to the Ball will be greater.\nPress 'K' to throw the ball.\n Press 'R' to reset the game\nPoints: " + pontuacao;
+
+                }
                 else if (elements_page[i][2] == "Red") {
                     elements_page[i][1].angularVelocity.set(0, 0, 0);
                     elements_page[i][1].velocity.set(0, 0, 0);
                     elements_page[i][1].force.set(0, 0, 0);
                     elements_page[i][1].inertia.set(0, 0, 0);
-                    elements_page[i][1].angularDamping = 0.6;
+                    elements_page[i][1].angularDamping = 0.86;
                     elements_page[i][0].castShadow = true;
                     elements_page[i][0].recieveShadow = true;
                     switch (r) {
@@ -319,10 +435,19 @@
                     r++;
                 }
                 else if (elements_page[i][2] == "floor") {
-
                     elements_page[i][0].castShadow = true;
                     elements_page[i][0].recieveShadow = true;
                     elements_page[i][1].position.set(0, 0, 0);
+
+                }
+                else if (elements_page[i][2] == "Bastao") {
+                    elements_page[i][0].castShadow = true;
+                    elements_page[i][0].recieveShadow = true;
+                    elements_page[i][1].position.set(0, 3, 0);
+                    elements_page[i][1].quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+                    elements_page[white_ball - 1][0].material.color.set('rgb(' + Math.round(255 * ((force - min_force) / max_force)) + ' ,' + 0 + ' ,' + Math.round(255 * (1 - ((force - min_force) / max_force))) + ")");
+
+                    Cur_ngl = 0;
 
                 }
                 else {
@@ -350,9 +475,18 @@
                 }
             }
         }
+
+
+        var force = 50000;
+        var min_force = 50000;
+        var max_force = 250000;
+        var Cur_ngl = 0;
+
+        reset_world();
         export { pontuacao };
 
     </script>
+
 </body>
 
 </html>
